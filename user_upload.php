@@ -1,4 +1,5 @@
 <?php
+    // Initialise CLI directives
     $options = getopt(null, [
         'file:',        
         'create_table', 
@@ -9,6 +10,7 @@
         'help'          
     ]);
     
+    // Help menu for CLI directives
     if (isset($options['help'])) {
         echo "Help Menu: php script.php \n 
         [--file <csv_file>]: Allows you to run the script with your .csv file. \n 
@@ -21,6 +23,7 @@
         exit;
     }
     
+    // Initialise variables across script
     $file = $options['file'] ?? null;
     $create_table = isset($options['create_table']);
     $dry_run = isset($options['dry_run']);
@@ -28,6 +31,7 @@
     $password = $options['p'] ?? '';
     $host = $options['h'] ?? 'localhost';
     
+    // Creates MySQL database from respective .csv file if one doesn't already exist
     $conn = new mysqli($host, $username, $password);
     if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
@@ -49,12 +53,14 @@
         exit;
     }
     
+    // Error handling for .csv file
     if (!$file) {
         echo "Error: You must provide a CSV file using the --file option.\n";
         exit;
     }
     
-    $file = fopen('users.csv', 'r');
+    // Opens the user's respective file 
+    $file = fopen($file, 'r');
     $rows = [];
     while (($row = fgetcsv($file)) !== false) {
         $rows[] = $row;
@@ -64,14 +70,14 @@
     $host = "localhost";
     $user = "root";
     $password = "";
-    $dbname = "mysql";
 
-    $conn = new mysqli($host, $user, $password, $dbname);
+    $conn = new mysqli($host, $user, $password, 'mysql');
 
     if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
     }
 
+    // Loops through the user's respective file
     foreach ($rows as $row) {
         $name = $conn->real_escape_string(ucfirst(strtolower($row[0])));
         $surname = $conn->real_escape_string(ucfirst(strtolower($row[1])));
@@ -81,17 +87,23 @@
             echo "Error: User for $email's entry was invalid \n";
             continue;
         }
+        if(!$dry_run) {
+            $sql = $conn->prepare("INSERT INTO users (name, surname, email) VALUES (?, ?, ?)");
+            $sql->bind_param("sss", $name, $surname, $email);
 
-        $sql = $conn->prepare("INSERT INTO users (name, surname, email) VALUES (?, ?, ?)");
-        $sql->bind_param("sss", $name, $surname, $email);
+            if ($sql->execute()) {
+                echo "Record inserted successfully" . $name . $surname . $email."\n";
+            } else {
+                echo "Error: " . $sql->error;
+            }
 
-        if ($sql->execute()) {
-            echo "Record inserted successfully" . $name . $surname . $email."\n";
-        } else {
-            echo "Error: " . $sql->error;
+            $sql->close();
         }
-
-        $sql->close();
+        else {
+            echo "Dry run: $name $surname $email activated but not inserted into database. \n";
+        }
+        
     }
+    // Closes the SQL connection
     $conn->close();
 ?>
